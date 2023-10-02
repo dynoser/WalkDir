@@ -1,0 +1,10 @@
+{
+    "name": "dynoser/walkdir",
+    "description": "Allows to recursively traverse files in directories or get an array of files",
+    "autoload": {
+        "psr-4": {
+            "dynoser\\walkdir\\": "src/"
+        }
+    },
+    "require": {}
+}
