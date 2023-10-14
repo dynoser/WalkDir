@@ -6,5 +6,10 @@
             "dynoser\\walkdir\\": "src/"
         }
     },
-    "require": {}
+    "require": {},
+    "extra": {
+        "dyno-aliases": {
+            "dynoser\\tools\\WalkDir": "dynoser\\walkdir\\WalkDir"
+        }
+    }
 }
