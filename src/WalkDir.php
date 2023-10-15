@@ -199,8 +199,14 @@ class WalkDir
             }
         }
         foreach($excludePatterns as $k => $excludePattern) {
-            if (false !== \strpos($excludePattern, '\\')) {
-                $excludePatterns[$k]= \strtr($excludePattern, '\\', '/');
+            if (false !== \strpos($excludePattern, '/')) {
+                $lc = \substr($excludePattern, -1);
+                if ($lc !== '/' && $lc !== '*' && \is_dir($excludePattern)) {
+                    if ($lc !== '/') {
+                        $excludePattern .= '/';
+                    }
+                    $excludePatterns[$k]= $excludePattern . '*';
+                }
             }
         }
         if ($getSize) {
