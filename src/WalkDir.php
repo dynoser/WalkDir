@@ -216,7 +216,7 @@ class WalkDir
                     if (\fnmatch($filePattern, $name)) {
                         $fullName = $left_path . $name;
                         foreach($excludePatterns as $excludePattern) {
-                            if (\strpos($excludePattern, '/')) {
+                            if (false !== \strpos($excludePattern, '/')) {
                                 $name = $fullName;
                             }
                             if (\fnmatch($excludePattern, $name)) {
