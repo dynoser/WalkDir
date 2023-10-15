@@ -156,6 +156,12 @@ class WalkDir
         }
         unset($srcPathOrArr);
 
+        foreach($excludePatterns as $k => $excludePattern) {
+            if (false !== \strpos($excludePattern, '\\')) {
+                $excludePatterns[$k] = \strtr($excludePattern, '\\', '/');
+            }
+        }
+
         if (is_null($filter_fn)) {
             $filter_fn = self::makeFilterFn($filePatterns, $excludePatterns, $walkMode, $getSize);
         }
@@ -192,7 +198,7 @@ class WalkDir
             }
         }
         foreach($excludePatterns as $k => $excludePattern) {
-            if (false !== strpos($excludePattern, '\\')) {
+            if (false !== \strpos($excludePattern, '\\')) {
                 $excludePatterns[$k]= \strtr($excludePattern, '\\','/');
             }
         }
