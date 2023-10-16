@@ -216,8 +216,8 @@ class WalkDir
                     if ($lc !== '*') {
                         $excludePattern .= '*';
                     }
-                    $excludePatterns[$k]= $excludePattern;
                 }
+                $excludePatterns[$k]= $excludePattern;
             }
         }
         if ($getSize) {
