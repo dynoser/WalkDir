@@ -201,13 +201,15 @@ class WalkDir
         foreach($excludePatterns as $k => $excludePattern) {
             $p = \strpos($excludePattern, '/');
             if (false !== $p) {
+                $lc = \substr($excludePattern, -1);
                 $itIsDir = \is_dir($excludePattern);
                 if (!$p) { // if started from "/" then lets started from "*/"
                     $excludePattern = '*' .$excludePattern;
-                    $itIsDir = true;
+                    if ('/' === $lc) {
+                        $itIsDir = true;
+                    }
                 }
                 if ($itIsDir) {
-                    $lc = \substr($excludePattern, -1);
                     if ($lc !== '/' && $lc !== '*') {
                         $excludePattern .= '/';
                     }
