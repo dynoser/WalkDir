@@ -199,13 +199,22 @@ class WalkDir
             }
         }
         foreach($excludePatterns as $k => $excludePattern) {
-            if (false !== \strpos($excludePattern, '/')) {
-                $lc = \substr($excludePattern, -1);
-                if ($lc !== '/' && $lc !== '*' && \is_dir($excludePattern)) {
-                    if ($lc !== '/') {
+            $p = \strpos($excludePattern, '/');
+            if (false !== $p) {
+                $itIsDir = \is_dir($excludePattern);
+                if (!$p) { // if started from "/" then lets started from "*/"
+                    $excludePattern = '*' .$excludePattern;
+                    $itIsDir = true;
+                }
+                if ($itIsDir) {
+                    $lc = \substr($excludePattern, -1);
+                    if ($lc !== '/' && $lc !== '*') {
                         $excludePattern .= '/';
                     }
-                    $excludePatterns[$k]= $excludePattern . '*';
+                    if ($lc !== '*') {
+                        $excludePattern .= '*';
+                    }
+                    $excludePatterns[$k]= $excludePattern;
                 }
             }
         }
