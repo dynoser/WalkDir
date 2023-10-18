@@ -27,7 +27,6 @@ class WalkDir
      * @throws \Exception
      */
     public static function getNames(string $basePath, bool $getHidden = false, string $globMask = '*'): array {
-        if (self::$fileCountThreshold && self::$fileCountTotal > self::$fileCountThreshold) return [];
         $realPath = \realpath($basePath);
         if (!$realPath) return [];
         $leftLen = \strlen($realPath) + 1;
@@ -45,7 +44,6 @@ class WalkDir
         $arr = \glob($realPath . \DIRECTORY_SEPARATOR . $globMask,  \GLOB_NOSORT | \GLOB_MARK | \GLOB_BRACE);
         $cnt = \count($arr);
         if (!$cnt) return [];
-        self::$fileCountTotal += $cnt;
         $ret = [];
         foreach($arr as $fullName) {
             $ret[] = \substr($fullName, $leftLen);
@@ -86,12 +84,15 @@ class WalkDir
     ): array {
         $arr = [];
         foreach(WalkDir::walkFiles($srcPathOrArr, $filePattern, $excludePatterns, $maxDepth, $mode, $getHidden, $getSize, $filter_fn) as $k => $v) {
-            if ($getSize) {
-                $arr[$k] = $v; // but [fullName]=>FileSize
-            } elseif ($nameToKey) {
-                $arr[$v] = $k;
-            } else {
-                $arr[] = $v;
+            if (self::$fileCountThreshold && self::$fileCountTotal <= self::$fileCountThreshold) {
+                if ($getSize) {
+                    $arr[$k] = $v; // but [fullName]=>FileSize
+                } elseif ($nameToKey) {
+                    $arr[$v] = $k;
+                } else {
+                    $arr[] = $v;
+                }
+                self::$fileCountTotal++;
             }
         }
         return $arr;
