@@ -3,6 +3,9 @@ namespace dynoser\walkdir;
 
 class WalkDir
 {
+    public static int $fileCountThreshold = 0;
+    public static int $fileCountTotal = 0;
+
     /**
      * Scan files and folders in $base_path and return Array of [ [N] => short_name (file OR folder)]
      * 
@@ -24,6 +27,7 @@ class WalkDir
      * @throws \Exception
      */
     public static function getNames(string $basePath, bool $getHidden = false, string $globMask = '*'): array {
+        if (self::$fileCountThreshold && self::$fileCountTotal > self::$fileCountThreshold) return [];
         $realPath = \realpath($basePath);
         if (!$realPath) return [];
         $leftLen = \strlen($realPath) + 1;
@@ -38,8 +42,10 @@ class WalkDir
             return [""];
         }
         // It is folder
-        $arr = \glob($realPath . DIRECTORY_SEPARATOR . $globMask,  \GLOB_NOSORT | \GLOB_MARK | \GLOB_BRACE);
-        if (!$arr) return [];
+        $arr = \glob($realPath . \DIRECTORY_SEPARATOR . $globMask,  \GLOB_NOSORT | \GLOB_MARK | \GLOB_BRACE);
+        $cnt = \count($arr);
+        if (!$cnt) return [];
+        self::$fileCountTotal += $cnt;
         $ret = [];
         foreach($arr as $fullName) {
             $ret[] = \substr($fullName, $leftLen);
@@ -147,9 +153,9 @@ class WalkDir
         bool      $getSize = false,
         ?callable $filter_fn = null
     ) {
-        if (is_string($srcPathOrArr)) {
+        if (\is_string($srcPathOrArr)) {
             $srcPathArr = [$srcPathOrArr];
-        } elseif (is_array($srcPathOrArr)) {
+        } elseif (\is_array($srcPathOrArr)) {
             $srcPathArr = $srcPathOrArr;
         } else {
             throw new \Exception("srcPath must be string or array of strings");
