@@ -84,16 +84,17 @@ class WalkDir
     ): array {
         $arr = [];
         foreach(WalkDir::walkFiles($srcPathOrArr, $filePattern, $excludePatterns, $maxDepth, $mode, $getHidden, $getSize, $filter_fn) as $k => $v) {
-            if (self::$fileCountThreshold && self::$fileCountTotal <= self::$fileCountThreshold) {
-                if ($getSize) {
-                    $arr[$k] = $v; // but [fullName]=>FileSize
-                } elseif ($nameToKey) {
-                    $arr[$v] = $k;
-                } else {
-                    $arr[] = $v;
-                }
-                self::$fileCountTotal++;
+            if (self::$fileCountThreshold && self::$fileCountTotal > self::$fileCountThreshold) {
+                break;
             }
+            if ($getSize) {
+                $arr[$k] = $v; // but [fullName]=>FileSize
+            } elseif ($nameToKey) {
+                $arr[$v] = $k;
+            } else {
+                $arr[] = $v;
+            }
+            self::$fileCountTotal++;
         }
         return $arr;
     }
