@@ -5,6 +5,9 @@ class WalkDir
 {
     public static int $fileCountThreshold = 0;
     public static int $fileCountTotal = 0;
+    
+    public static int $getNamesSumThreshold = 0;
+    public static int $getNamesSumTotal = 0;
 
     /**
      * Scan files and folders in $base_path and return Array of [ [N] => short_name (file OR folder)]
@@ -43,10 +46,14 @@ class WalkDir
         // It is folder
         $arr = \glob($realPath . \DIRECTORY_SEPARATOR . $globMask,  \GLOB_NOSORT | \GLOB_MARK | \GLOB_BRACE);
         $cnt = \count($arr);
-        if (!$cnt) return [];
         $ret = [];
-        foreach($arr as $fullName) {
-            $ret[] = \substr($fullName, $leftLen);
+        if ($cnt) {
+            if (self::$getNamesSumThreshold) {
+                self::$getNamesSumTotal += $cnt;
+            }
+            foreach($arr as $fullName) {
+                $ret[] = \substr($fullName, $leftLen);
+            }
         }
         return $ret;
     }
@@ -320,6 +327,9 @@ class WalkDir
         bool      $getHidden = true,
         string    $globMask = '*'
     ) {
+        if (self::$getNamesSumTotal > self::$getNamesSumThreshold) {
+            return;
+        }
         $fileItemsArr = WalkDir::getNames($srcPath, $getHidden, $globMask);
         $dirsArr = [];
         $leftPath = \strtr(\realpath($srcPath), '\\', '/');
