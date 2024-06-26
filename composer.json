@@ -9,7 +9,9 @@
     "require": {},
     "extra": {
         "dyno-aliases": {
-            "dynoser\\tools\\WalkDir": "dynoser\\walkdir\\WalkDir"
+            "dynoser\\tools\\WalkDir": "dynoser\\walkdir\\WalkDir",
+            "V\\path\\WalkDirTree": "dynoser\\walkdir\\WalkDirTree",
+            "V\\path\\WalkDirGlob": "dynoser\\walkdir\\WalkDirGlob"
         }
     }
 }
