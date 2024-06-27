@@ -9,7 +9,7 @@ namespace dynoser\walkdir;
  * 
  * Рекомендуемый сценарий вызова:
  *  1) создаём объект, при этом будет построено дерево директорий
- *    $treeObj = new \dynoser\walkdir\WalkDirTree([ массив путей-источников ], [ массив путей-исключений ], true);
+ *    $treeObj = new \V\path\WalkDirTree([ массив путей-источников ], [ массив путей-исключений ], true);
  *  2) обходим файлы по уже готовому дереву директорий, указывая маску
  *   foreach($treeObj->walkFiles("*.php") as $fullFile) {
  *      echo "$fullFile \n";
@@ -35,18 +35,15 @@ class WalkDirTree {
      * Либо может вызываться без параметров
      * пути можно долбавлять позже через addDirTree
      * 
-     * @param string|array<string> $srcPathes
-     * @param string|array<string> $excludePathes
+     * @param array<string> $srcPathes
+     * @param array<string> $excludePathes
      * @param bool $getHiddenDirs
      */
     public function __construct(
-        string|array $srcPathes = [],
-        string|array $excludePathes = [],
+        array $srcPathes = [],
+        array $excludePathes = [],
         bool $getHiddenDirs = false
     ) {
-        if (\is_string($srcPathes)) {
-            $srcPathes = [$srcPathes];
-        }
         foreach($srcPathes as $basePath) {
             $this->addDirTree($basePath, $excludePathes, $getHiddenDirs);
         }
@@ -58,7 +55,7 @@ class WalkDirTree {
      * Поддерживает массив путей-исключений (эти пути или маски не будут добавлены)
      * 
      * @param string $basePath
-     * @param string|array<string> $excludePathes
+     * @param array<string> $excludePathes
      * @param bool $getHidden
      * @param string $globMask
      * @return array<mixed>
@@ -66,7 +63,7 @@ class WalkDirTree {
      */
     public function addDirTree(
         string $basePath,
-        string|array $excludePathes = [],
+        array $excludePathes = [],
         bool $getHidden = false,
         string $globMask = '*'
     ): array {
@@ -90,7 +87,7 @@ class WalkDirTree {
     }
     
     /**
-     * Функция принимает на входе базовый путь и массив путей,
+     * Принимает на входе базовый путь и массив путей,
      * возвращает массив с абсолютными путями в ключах со значениями всегда true.
      * возвращаемые абсолютные пути всегда проверяются на существование и начинаются на базовый путь.
      * 
@@ -102,16 +99,13 @@ class WalkDirTree {
      * если по маске удаётся найти какие-либо директории, они все добавляются в результат.
      * 
      * @param string $basePath базовый путь, на который будут начинаться все результаты
-     * @param string|array<string> $patternsArr массив абсолютных или относительных путей или масок
+     * @param array<string> $patternsArr массив абсолютных или относительных путей или масок
      * @return array<string,true> В ключах будут существующие абсолютные пути, начинающиеся на базовый путь
      * @throws \InvalidArgumentException
      */
-    public static function pathAbsPrepareArr(string $basePath, string|array $patternsArr): array {
-        if (\is_string($patternsArr)) {
-            $patternsArr = [$patternsArr];
-        }
-
+    public static function pathAbsPrepareArr(string $basePath, array $patternsArr): array {
         $resultsArr = [];
+        $l = \strlen($basePath);
         foreach($patternsArr as $patternStr) {
             if (!\is_string($patternStr)) {
                 throw new \InvalidArgumentException("all patterns must have string type");
@@ -127,7 +121,7 @@ class WalkDirTree {
                     $patternStr = \strtr($patternStr, '\\', '/');
                 }
                 
-                if (\str_starts_with($patternStr, $basePath) && \is_dir($patternStr)) {
+                if ((\substr($patternStr, 0, $l) === $basePath) && \is_dir($patternStr)) {
                     // если строка начинается на basePath (он со слешем в конце)
                     // и есть такая директория, значит указана абсолютная директория
                     $patternStr = \rtrim($patternStr, '/'); //удалим слэш в конце если он есть
@@ -145,7 +139,7 @@ class WalkDirTree {
             } else {
                 // если в шаблоне есть масочные символы, то попробуем найти директории, соответствующие этой маске
                 $dirArr = [];
-                if (\str_starts_with($patternStr, $basePath)) {
+                if (\substr($patternStr, 0, $l) === $basePath) {
                     $dirArr = \glob($patternStr, \GLOB_ONLYDIR | \GLOB_NOSORT | \GLOB_BRACE);
                 }
                 if (!$dirArr) {
@@ -153,7 +147,7 @@ class WalkDirTree {
                 }
                 if ($dirArr) {
                     foreach($dirArr as $dirPath) {
-                        if (\str_starts_with($dirPath, $basePath)) {
+                        if (\substr($dirPath, 0, $l) === $basePath) {
                             $dirPath = \strtr( $dirPath, '\\', '/');
                             $resultsArr[$dirPath] = true;
                         }
@@ -204,14 +198,14 @@ class WalkDirTree {
     }
     
     /**
-     * Получает имена файлов из указанной директории
+     * Получает только короткие имена файлов (без путей) из указанной директории (не рекурсивно, без директорий)
      * 
      * @param string $basePath must ended with "/"
      * @param string $globMask mask for glob function
      * @return array<string> массив только имён файлов (без путей)
      * @throws \InvalidArgumentException
      */
-    private function getFilesArr(string $basePath, string $globMask = '*'): array {
+    private function getFilesArray(string $basePath, string $globMask = '*'): array {
         $ret = [];
         $leftLen = \strlen($basePath); // must ended by '/'
         $arr = \glob($basePath . $globMask,  \GLOB_NOSORT | \GLOB_MARK | \GLOB_BRACE);
@@ -247,7 +241,7 @@ class WalkDirTree {
             }
             $reLoaded = !$useCache || !\is_array($filesArr);
             if ($reLoaded) {
-                $filesArr = $this->getFilesArr($basePath, $globMask);
+                $filesArr = $this->getFilesArray($basePath, $globMask);
             }
             if ($useCache && $reLoaded) {
                 if (!\is_array($this->dirPathArr[$basePath])) {
