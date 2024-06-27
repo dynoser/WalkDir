@@ -1,5 +1,8 @@
 <?php
+declare(strict_types=1);
+
 namespace dynoser\walkdir;
+
 /**
  * Класс для организации эффективного обхода файлов в диекториях.
  * Сначала выполняет построение дерева директорий (с учётом путей-исключений и масок)
@@ -11,7 +14,8 @@ namespace dynoser\walkdir;
  *  1) создаём объект, при этом будет построено дерево директорий
  *    $treeObj = new \V\path\WalkDirTree([ массив путей-источников ], [ массив путей-исключений ], true);
  *  2) обходим файлы по уже готовому дереву директорий, указывая маску
- *   foreach($treeObj->walkFiles("*.php") as $fullFile) {
+ *   foreach($treeObj->walkFiles("*.php") as $basePath => $subDirFile) {
+ *      $fullFile = $basePath . $subDirFile;
  *      echo "$fullFile \n";
  *   }
  * 
@@ -31,11 +35,23 @@ class WalkDirTree {
     public array $dirPathArr = [];
     
     /**
+     * Массив базовых путей, ключ - базовый путь, значение - внутренний числовой идентификатор пути basePathId
+     * @var array<string,int>
+     */
+    public array $basePathToIdArr = [];
+    
+    /**
+     * Массив обратной ассоциации для $basePathToIdArr [basePathId] => basePath
+     * @var array<int,string>
+     */
+    public array $pathIdToPathArr = [];
+    
+    /**
      * Конструктор может принимать список путей-источников и список путей исключений
      * Либо может вызываться без параметров
      * пути можно долбавлять позже через addDirTree
      * 
-     * @param array<string> $srcPathes
+     * @param array<int,string> $srcPathes
      * @param array<string> $excludePathes
      * @param bool $getHiddenDirs
      */
@@ -44,8 +60,8 @@ class WalkDirTree {
         array $excludePathes = [],
         bool $getHiddenDirs = false
     ) {
-        foreach($srcPathes as $basePath) {
-            $this->addDirTree($basePath, $excludePathes, $getHiddenDirs);
+        foreach($srcPathes as $basePathId => $basePath) {
+            $this->addDirTree($basePath, $excludePathes, $getHiddenDirs, '*', $basePathId);
         }
     }
     
@@ -54,27 +70,29 @@ class WalkDirTree {
      * Добавление происходит рекурсивно от указанного пути (включительно)
      * Поддерживает массив путей-исключений (эти пути или маски не будут добавлены)
      * 
-     * @param string $basePath
+     * @param string $basePathStr
      * @param array<string> $excludePathes
      * @param bool $getHidden
      * @param string $globMask
+     * @param int $basePathId идентификатор пути базового пути  (если null то будет дан следующий свободный номер)
      * @return array<mixed>
      * @throws \InvalidArgumentException
      */
     public function addDirTree(
-        string $basePath,
+        string $basePathStr,
         array $excludePathes = [],
         bool $getHidden = false,
-        string $globMask = '*'
+        string $globMask = '*',
+        ?int $basePathId = null
     ): array {
 
-        $realPath = \realpath($basePath);
+        $realPath = \realpath($basePathStr);
         if (!$realPath || !\is_dir($realPath)) {
-            throw new \InvalidArgumentException("basePath is not directory: $basePath");
+            throw new \InvalidArgumentException("basePath is not directory: $basePathStr");
         }
-        $basePath = \strtr($realPath, '\\', '/') . '/';
+        $basePathStr = \strtr($realPath, '\\', '/') . '/';
 
-        $excludePreparedArr = $this->pathAbsPrepareArr($basePath, $excludePathes);
+        $excludePreparedArr = $this->pathAbsPrepareArr($basePathStr, $excludePathes);
 
         if ($getHidden) {
             if ($globMask !== '*') {
@@ -83,7 +101,29 @@ class WalkDirTree {
             $globMask = '{,.}*';
         }
 
-        return $this->buildDirTree($basePath, $excludePreparedArr, $globMask);
+        // не допускаем повторного добавления одного и того же пути, потому что если он добавляется
+        //  с разными параметры, то может получиться путаница.
+        if (isset($this->basePathToIdArr[$basePathStr])) {
+            throw new \InvalidArgumentException("already exists basePath=$basePathStr");
+        }
+        if (isset($basePathId)) {
+            // если идентификатор передан, то он должен отсутствовать в массивах
+            if (isset($this->pathIdToPathArr[$basePathId])) {
+                throw new \InvalidArgumentException("already defined basePathId=$basePathId");
+            }
+        } else {
+            // если идентификатор не передан, значит найдём следующий пустой номер
+            $basePathId = \count($this->basePathToIdArr);
+            // Увеличиваем это значение до тех пор, пока оно встречается в массивах
+            while (isset($this->pathIdToPathArr[$basePathId])) {
+                $basePathId++;
+            }
+        }
+        // добавляем значения в оба массива сразу.
+        $this->basePathToIdArr[$basePathStr] = $basePathId;
+        $this->pathIdToPathArr[$basePathId] = $basePathStr;
+    
+        return $this->buildDirTree($basePathId, $basePathStr, $excludePreparedArr, $globMask);
     }
     
     /**
@@ -162,12 +202,14 @@ class WalkDirTree {
      * Добавляет в массив $this->dirPathArr папки, которые рекурсивно обнаруживаются в исходном пути $fullPath
      * при этом из результатов выбрасываются пути-исключения
      * 
-     * @param string $fullPath
-     * @param array<string,true> $excludeAbsPathArr Пути-исключения в ключах, абсолютный путь
+     * @param int $basePathId идентификатор пути базового пути
+     * @param string $fullPath полный путь, с которого рекурсивно проходятся директории
+     * @param array<string,true> $excludeAbsPathArr пути-исключения в ключах, абсолютный путь
      * @param string $globMask маска выборки директорий
      * @return array<mixed> Дерево директорий.
      */
     private function buildDirTree(
+        int $basePathId,
         string $fullPath,
         array $excludeAbsPathArr = [],
         string $globMask = '*'
@@ -188,11 +230,11 @@ class WalkDirTree {
                 if (\array_key_exists($fullDirPath, $excludeAbsPathArr)) {
                     continue;
                 }
-                $dirTreeArr[$dirName] = $this->buildDirTree($fullDirPath . '/', $excludeAbsPathArr, $globMask);
+                $dirTreeArr[$dirName] = $this->buildDirTree($basePathId, $fullDirPath . '/', $excludeAbsPathArr, $globMask);
             }
         }
         
-        $this->dirPathArr[$fullPath] = \count($dirTreeArr);
+        $this->dirPathArr[$fullPath] = $basePathId;
 
         return $dirTreeArr;
     }
@@ -234,23 +276,32 @@ class WalkDirTree {
                 throw new \InvalidArgumentException("getHidden can use only with '*'-mask");
             }
             $globMask = '{,.}*';
+        } elseif ($globMask === '') {
+            throw new \InvalidArgumentException("Empty mask");;
         }
-        foreach($this->dirPathArr as $basePath => $filesArr) {
-            if ($useCache && \is_array($filesArr)) {
-                $filesArr = $filesArr[$globMask] ?? null;
+        foreach($this->dirPathArr as $dirPath => $intOrArr) {
+            $filesArr = null;
+            if (\is_array($intOrArr)) {
+                $basePathId = $intOrArr[''];
+                if ($useCache  && isset( $intOrArr[$globMask])) {
+                    $filesArr = $intOrArr[$globMask];
             }
-            $reLoaded = !$useCache || !\is_array($filesArr);
+            } else {                
+                $basePathId = $intOrArr;
+                $this->dirPathArr[$dirPath] = ['' => $basePathId];
+            }
+            $reLoaded = !$useCache || !isset($filesArr);
             if ($reLoaded) {
-                $filesArr = $this->getFilesArray($basePath, $globMask);
+                $filesArr = $this->getFilesArray($dirPath, $globMask);
             }
             if ($useCache && $reLoaded) {
-                if (!\is_array($this->dirPathArr[$basePath])) {
-                    $this->dirPathArr[$basePath] = [];
-                }
-                $this->dirPathArr[$basePath][$globMask] = $filesArr;
+                $this->dirPathArr[$dirPath][$globMask] = $filesArr;
             }
+            $basePath = $this->pathIdToPathArr[$basePathId];
+            $bpl = \strlen($basePath);
             foreach ($filesArr as $fileName) {
-                yield $basePath . $fileName;
+                $fullFile = $dirPath . $fileName;
+                yield $basePath => substr($fullFile, $bpl);
             }
         }
     }
