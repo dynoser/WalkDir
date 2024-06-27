@@ -44,6 +44,8 @@
 
 Для обхода файлов нужно вызывать walkFiles с указанием файловой маски, это генератор, который будет обходить файлы по уже загруженному дереву папок.
 
+Обратим внимание, что генератор передаёт отдельно базовый путь в ключе и имя файла относительно этого пути в значении. Чтобы собрать полное имя файла достаточно соединить ключ и значение, см. примеры ниже.
+
 ## Features
 
 - **Efficient Directory Traversal:** Build a tree of directories with support for exclusion paths and masks.
@@ -86,7 +88,8 @@ $treeObj = new WalkDirTree($sourcePaths, $excludePaths, true);
 Once the tree is constructed, you can iterate over the files using a specified mask. This example shows how to iterate over PHP files.
 
 ```php
-foreach ($treeObj->walkFiles("*.php") as $fullFilePath) {
+foreach ($treeObj->walkFiles("*.php") as $basePath => $subDirFile) {
+    $fillFilePath = $basePath . $subDirFile;
     echo "$fullFilePath\n";
 }
 ```
@@ -98,7 +101,8 @@ foreach ($treeObj->walkFiles("*.php") as $fullFilePath) {
 If you enable caching, subsequent calls with the same mask will use cached results, reducing the need to re-scan directories.
 
 ```php
-foreach ($treeObj->walkFiles("*.txt", true) as $fullFilePath) {
+foreach ($treeObj->walkFiles("*.txt", true) as $basePath => $subDirFile) {
+    $fillFilePath = $basePath . $subDirFile;
     echo "$fullFilePath\n";
 }
 ```
