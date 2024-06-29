@@ -36,15 +36,30 @@ class WalkDirTree {
     
     /**
      * Массив базовых путей, ключ - базовый путь, значение - внутренний числовой идентификатор пути basePathId
+     *  (пути со слешами в конце)
      * @var array<string,int>
      */
     public array $basePathToIdArr = [];
     
     /**
-     * Массив обратной ассоциации для $basePathToIdArr [basePathId] => basePath
+     * Массив обратной ассоциации для $basePathToIdArr [basePathId] => basePath (пути со слешами в конце)
+     * Фактически повторяет $srcPathes, переданный в конструктор, и используется как источник для reLoadTree
      * @var array<int,string>
      */
     public array $pathIdToPathArr = [];
+    
+    /**
+     * Копия массива $excludePathes переданного в конструктор, используется для reLoadTree
+     * (поскольку public, можно внести изменения и затем вызвать reLoadTree)
+     * @var array<string>
+     */
+    public array $excludePathes;
+    
+    /**
+     * Копия параметра переданного в конструктор, используется для reLoadTree
+     * @var bool $getHiddenDirs
+     */
+    public bool $getHiddenDirs;
     
     /**
      * Конструктор может принимать список путей-источников и список путей исключений
@@ -60,8 +75,25 @@ class WalkDirTree {
         array $excludePathes = [],
         bool $getHiddenDirs = false
     ) {
+        $this->excludePathes = $excludePathes;
+        $this->getHiddenDirs = $getHiddenDirs;
+        $this->reLoadTree($srcPathes);
+    }
+    
+    /**
+     * Сбрасывает построенное дерево и строит заново.
+     * Первый раз вызывается из конструктора.
+     * 
+     * @param null|array<int,string> $srcPathes
+     * @return void
+     */
+    public function reLoadTree(array $srcPathes = null): void {
+        $srcPathes = $srcPathes ?? $this->pathIdToPathArr;
+        $this->basePathToIdArr = [];
+        $this->pathIdToPathArr = [];
+        $this->dirPathArr = [];
         foreach($srcPathes as $basePathId => $basePath) {
-            $this->addDirTree($basePath, $excludePathes, $getHiddenDirs, '*', $basePathId);
+            $this->addDirTree($basePath, $this->excludePathes, $this->getHiddenDirs, '*', $basePathId);
         }
     }
     
@@ -267,6 +299,7 @@ class WalkDirTree {
      * @param string $globMask
      * @param bool $useCache
      * @param bool $getHidden
+     * @yield array<string,string>
      * @return \Generator
      */
     public function walkFiles(string $globMask = '*', bool $useCache = true, bool $getHidden = false): \Generator {
@@ -295,6 +328,7 @@ class WalkDirTree {
                 $filesArr = $this->getFilesArray($dirPath, $globMask);
             }
             if ($useCache && $reLoaded) {
+                // @phpstan-ignore-next-line
                 $this->dirPathArr[$dirPath][$globMask] = $filesArr;
             }
             $basePath = $this->pathIdToPathArr[$basePathId];
