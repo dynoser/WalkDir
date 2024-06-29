@@ -310,25 +310,20 @@ class WalkDirTree {
             }
             $globMask = '{,.}*';
         } elseif ($globMask === '') {
-            throw new \InvalidArgumentException("Empty mask");;
+            throw new \InvalidArgumentException("Empty mask");
         }
-        foreach($this->dirPathArr as $dirPath => $intOrArr) {
-            $filesArr = null;
-            if (\is_array($intOrArr)) {
+        foreach ($this->dirPathArr as $dirPath => $intOrArr) {
+            /**
+             * @var int $basePathId
+             */
                 $basePathId = $intOrArr[''];
-                if ($useCache  && isset( $intOrArr[$globMask])) {
-                    $filesArr = $intOrArr[$globMask];
-            }
-            } else {                
-                $basePathId = $intOrArr;
-                $this->dirPathArr[$dirPath] = ['' => $basePathId];
-            }
-            $reLoaded = !$useCache || !isset($filesArr);
-            if ($reLoaded) {
-                $filesArr = $this->getFilesArray($dirPath, $globMask);
-            }
-            if ($useCache && $reLoaded) {
-                // @phpstan-ignore-next-line
+
+            $fromCache = $useCache && isset($intOrArr[$globMask]);
+            /**
+             * @var array<string> $filesArr
+             */
+            $filesArr = $fromCache ? $intOrArr[$globMask] : $this->getFilesArray($dirPath, $globMask);
+            if ($useCache && !$fromCache) {
                 $this->dirPathArr[$dirPath][$globMask] = $filesArr;
             }
             $basePath = $this->pathIdToPathArr[$basePathId];
