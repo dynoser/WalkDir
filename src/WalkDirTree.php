@@ -127,11 +127,11 @@ class WalkDirTree {
 
         $excludePreparedArr = $this->pathAbsPrepareArr($basePathStr, $excludePathes);
 
+        if ($globMask === '') {
+            $globMask = '*';
+        }
         if ($getHidden) {
-            if ($globMask !== '*') {
-                throw new \InvalidArgumentException("getHidden can use only with '*'-mask");
-            }
-            $globMask = '{,.}*';
+            $globMask = '{,.}' . $globMask;
         }
 
         // не допускаем повторного добавления одного и того же пути, потому что если он добавляется
@@ -304,26 +304,25 @@ class WalkDirTree {
      * @return \Generator
      */
     public function walkFiles(string $globMask = '*', bool $useCache = true, bool $getHidden = false): \Generator {
+        // пустую маску необходимо исключить, поэтому заменим её на звёздочку для выбора всех файлов.
+        if ($globMask === '') {
+            $globMask = '*';
+        }
         // подготовим маску в случае параметра $getHidden
         if ($getHidden) {
-            if ($globMask !== '*') {
-                throw new \InvalidArgumentException("getHidden can use only with '*'-mask");
-            }
-            $globMask = '{,.}*';
-        } elseif ($globMask === '') {
-            throw new \InvalidArgumentException("Empty mask");
+            $globMask = '{,.}' . $globMask;
         }
-        foreach ($this->dirPathArr as $dirPath => $intOrArr) {
+        foreach ($this->dirPathArr as $dirPath => $maskArr) {
             /**
              * @var int $basePathId
              */
-                $basePathId = $intOrArr[''];
+            $basePathId = $maskArr[''];
 
-            $fromCache = $useCache && isset($intOrArr[$globMask]);
+            $fromCache = $useCache && isset($maskArr[$globMask]);
             /**
              * @var array<string> $filesArr
              */
-            $filesArr = $fromCache ? $intOrArr[$globMask] : $this->getFilesArray($dirPath, $globMask);
+            $filesArr = $fromCache ? $maskArr[$globMask] : $this->getFilesArray($dirPath, $globMask);
             if ($useCache && !$fromCache) {
                 $this->dirPathArr[$dirPath][$globMask] = $filesArr;
             }
@@ -332,6 +331,31 @@ class WalkDirTree {
             foreach ($filesArr as $fileName) {
                 $fullFile = $dirPath . $fileName;
                 yield $basePath => substr($fullFile, $bpl);
+            }
+        }
+    }
+    
+    /**
+     * Удаление закэшированных результатов, чтобы при обходе файлов они читались заново.
+     * Существующее дерево папок этот метод не удаляет, а использует его для обхода.
+     * Вызов с пустыми параметрами приведёт к удалению всех закешированных файлов
+     * Можно указать левую часть пути, только при совпадении которой будет удаление.
+     * Можно указать файловую маску чтобы удалить кэши только по файлам закэшированным под этой конкретной маской.
+     * 
+     * @param string $pathPattern Левая часть пути, при совпадении которой кэш будет удалён ("" значит для всех путей)
+     * @param string $onlyThisMask Пустая строка удалит кэш по всем маскам, не пустая только по этой маске.
+     */
+    public function clearCache(string $pathPattern = '', string $onlyThisMask = ''): void {
+        $leftLen = \strlen($pathPattern);
+        foreach($this->dirPathArr as $dirPath => $maskArr) {
+            if (!$leftLen || \substr($dirPath, 0, $leftLen) === $pathPattern) {
+                if ($onlyThisMask) {
+                    // delete without checking existence
+                    unset($this->dirPathArr[$dirPath][$onlyThisMask]);
+                } else {
+                    // clear all keys except ['']-key
+                    $this->dirPathArr[$dirPath] = ['' => $maskArr['']];
+                }
             }
         }
     }
